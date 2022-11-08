@@ -1,11 +1,16 @@
 # import numpy as np
-from classifiers import *
+import io
+import os
+import random
+import shutil
+
+import cv2
 # from pipeline import *
 import streamlit as st
-from PIL import Image
-import os
-import shutil
 from tensorflow.keras.preprocessing.image import ImageDataGenerator
+
+from classifiers import *
+import face_recognition
 
 # 1 - Load the model and its pretrained weights
 classifier = Meso4()
@@ -22,7 +27,6 @@ st.title('Deepfake Detector')
 
 dataGenerator = ImageDataGenerator(rescale=1. / 255)
 
-from PIL import Image
 import glob
 
 
@@ -41,7 +45,6 @@ def predict(res1):
         class_mode='binary',
         subset='training')
 
-    st.image(res1, width=100)
     st.text('Ready for deeepfake prediction.......')
     num_to_label = {1: "real", 0: "fake"}
 
@@ -51,8 +54,13 @@ def predict(res1):
     probabilistic_predictions = classifier.predict(X)
 
     print('Predicted :', probabilistic_predictions)
-
-    predictions = [num_to_label[round(x[0])] for x in probabilistic_predictions]
+    predictions = []
+    for x in probabilistic_predictions:
+        if x[0] > 0.75:
+            predictions.append(num_to_label[1])
+        else:
+            predictions.append(num_to_label[0])
+    # predictions = [num_to_label[round(x[0])] for x in probabilistic_predictions]
     print(predictions)
 
     for ind, loc in enumerate(res1):
@@ -61,40 +69,130 @@ def predict(res1):
         st.write(text)
 
 
+def locating_face_landmarks(image):
+    face_landmarks_list = face_recognition.face_landmarks(image)
+
+    # https://github.com/ageitgey/face_recognition/blob/master/examples/find_facial_features_in_picture.py
+    # face_landmarks_list
+    from PIL import Image, ImageDraw
+    pil_image = Image.fromarray(image)
+    d = ImageDraw.Draw(pil_image)
+
+    for face_landmarks in face_landmarks_list:
+
+        # Print the location of each facial feature in this image
+        for facial_feature in face_landmarks.keys():
+            print("The {} in this face has the following points: {}".format(facial_feature,
+                                                                            face_landmarks[facial_feature]))
+
+        # Let's trace out each facial feature in the image with a line!
+        for facial_feature in face_landmarks.keys():
+            d.line(face_landmarks[facial_feature], width=3)
+
+    # Show the picture
+    st.image(pil_image, width=100)
+
+
+def detect_face(image, frame, new_path):
+
+    face_locations = face_recognition.face_locations(image)
+
+    # https://github.com/ageitgey/face_recognition/blob/master/examples/find_faces_in_picture.py
+
+    print("I found {} face(s) in this photograph.".format(len(face_locations)))
+
+    for face_location in face_locations:
+        # Print the location of each face in this image
+        top, right, bottom, left = face_location
+        print("A face is located at pixel location Top: {}, Left: {}, Bottom: {}, Right: {}".format(top, left, bottom,
+                                                                                                    right))
+
+        # You can access the actual face itself like this:
+        face_image = image[top:bottom, left:right]
+        # fig, ax = plt.subplots(1, 1, figsize=(5, 5))
+        # plt.grid(False)
+        # ax.xaxis.set_visible(False)
+        # ax.yaxis.set_visible(False)
+        # ax.imshow(face_image)
+        st.image(face_image)
+
+        cv2.imwrite(new_path + '/face_by_frame_' + str(frame) + '.jpg', face_image)
+        print('Now detecting face location.....')
+        locating_face_landmarks(face_image)
+
+
+def extract_image(directory):
+    directory = 'upload'
+
+    for filename in os.listdir(directory):
+        print(filename)
+        new_path = 'extracted_images/' + str(os.listdir(directory).index(filename))
+        print(new_path)
+        if not os.path.exists(new_path):
+            os.makedirs(new_path)
+
+    f = os.path.join(directory, filename)
+
+    vid_cap = cv2.VideoCapture(f)
+    total_frames = int(vid_cap.get(cv2.CAP_PROP_FRAME_COUNT))
+    print(total_frames)
+    thirty_rand = random.sample(list(range(0, total_frames)), 30)
+
+    for frame in thirty_rand:
+        vid_cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
+        success, image = vid_cap.read()
+
+        detect_face(image, frame, new_path)
+
+    return new_path
 
 
 option = st.selectbox(
     "How would you like to be contacted?",
-    ("Choose dataset", "donald_r", "Donald", "girl_1","putin", "superman", "bruno"))
+    ("Choose dataset", "person_1", "upload video"))
 source_dir = ''
 path = ''
 
 print(option)
 
-if option == 'donald_r':
+if option != 'Choose dataset' and option != 'upload video':
     source_dir = f'datset/{option}'
     path = f'test_images/{option}'
     destination = f'test_images/{option}'
-elif option == 'bruno':
-    source_dir = f'datset/{option}'
-    path = f'test_images/{option}'
-    destination = f'test_images/{option}'
-elif option == 'girl_1':
-    source_dir = f'datset/{option}'
-    path = f'test_images/{option}'
-    destination = f'test_images/{option}'
-elif option == 'Donald':
-    source_dir = f'datset/{option}'
-    path = f'test_images/{option}'
-    destination = f'test_images/{option}'
-elif option == 'putin':
-    source_dir = f'datset/{option}'
-    path = f'test_images/{option}'
-    destination = f'test_images/{option}'
-elif option == 'superman':
-    source_dir = f'datset/{option}'
-    path = f'test_images/{option}'
-    destination = f'test_images/{option}'
+    img = cv2.imread(path)
+
+
+def save_uploadedfile(file):
+    g = io.BytesIO(file.read())  ## BytesIO Object
+    temporary_location = f'upload/{file.name}'
+
+    with open(temporary_location, 'wb') as out:  ## Open temporary file as bytes
+        out.write(g.read())  ## Read bytes into file
+
+    # close file
+    out.close()
+    print("Saved File:{} to upload".format(file.name))
+    return temporary_location
+
+
+if option == 'upload video':
+    # video_file = st.file_uploader('video', type=['mp4'])
+    # cap = cv2.VideoCapture(video_file)
+
+    f = st.file_uploader("Upload video file")
+    if f is not None:
+
+        loc = save_uploadedfile(f)
+
+        video_file = open(loc, 'rb')
+        video_bytes = video_file.read()
+
+        st.video(video_bytes)
+
+        source_dir = extract_image(loc)
+        path = f'test_images/{option}'
+        destination = f'test_images/{option}'
+
 
 if path != '' and source_dir != '':
     shutil.copytree(source_dir, destination)
@@ -103,8 +201,19 @@ if path != '' and source_dir != '':
     print(res)
     # image1 = Image.open(path + image)
 
+    st.image(res, width=100)
+
+    for im in res:
+        img = cv2.imread(im)
+        locating_face_landmarks(img)
+
     predict(res)
     shutil.rmtree(f'test_images/{option}')
+
+    if option == 'upload video':
+        shutil.rmtree(source_dir, 'completed')
+        upload_file = 'upload/' + f.name
+        shutil.move(upload_file, 'completed')
     source_dir = ''
     path = ''
     option = ''
