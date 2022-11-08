@@ -105,3 +105,10 @@ result_vid/
 saved_weights/
 *.npy
 *.mp4
+.vscode/launch.json
+.idea/inspectionProfiles/profiles_settings.xml
+.idea/MesoNet.iml
+.idea/misc.xml
+.idea/modules.xml
+.idea/vcs.xml
+.DS_Store
