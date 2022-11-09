@@ -45,8 +45,8 @@ def predict(res1):
         class_mode='binary',
         subset='training')
 
-    st.text('Ready for deeepfake prediction.......')
-    num_to_label = {1: "real", 0: "fake"}
+    # st.text('Ready for deeepfake prediction.......')
+    num_to_label = {1: "REAL", 0: "FAKE"}
 
     # 3 - Predict
     X, y = generator.next()
@@ -63,10 +63,7 @@ def predict(res1):
     # predictions = [num_to_label[round(x[0])] for x in probabilistic_predictions]
     print(predictions)
 
-    for ind, loc in enumerate(res1):
-        st.image(loc, width=100)
-        text = predictions[ind] + ' Probability is ' + str(probabilistic_predictions[ind][0])
-        st.write(text)
+    return predictions, probabilistic_predictions
 
 
 def locating_face_landmarks(image):
@@ -89,8 +86,7 @@ def locating_face_landmarks(image):
         for facial_feature in face_landmarks.keys():
             d.line(face_landmarks[facial_feature], width=3)
 
-    # Show the picture
-    st.image(pil_image, width=100)
+    return pil_image
 
 
 def detect_face(image, frame, new_path):
@@ -114,11 +110,11 @@ def detect_face(image, frame, new_path):
         # ax.xaxis.set_visible(False)
         # ax.yaxis.set_visible(False)
         # ax.imshow(face_image)
-        st.image(face_image)
+        # st.image(face_image)
 
         cv2.imwrite(new_path + '/face_by_frame_' + str(frame) + '.jpg', face_image)
-        print('Now detecting face location.....')
-        locating_face_landmarks(face_image)
+        # print('Now detecting face location.....')
+        # locating_face_landmarks(face_image)
 
 
 def extract_image(directory):
@@ -136,7 +132,7 @@ def extract_image(directory):
     vid_cap = cv2.VideoCapture(f)
     total_frames = int(vid_cap.get(cv2.CAP_PROP_FRAME_COUNT))
     print(total_frames)
-    thirty_rand = random.sample(list(range(0, total_frames)), 30)
+    thirty_rand = random.sample(list(range(0, total_frames)), 20)
 
     for frame in thirty_rand:
         vid_cap.set(cv2.CAP_PROP_POS_FRAMES, frame)
@@ -200,14 +196,46 @@ if path != '' and source_dir != '':
     # dir_list = os.listdir(path)
     print(res)
     # image1 = Image.open(path + image)
+    predictions_labels, probabilistic_predictions = predict(res)
 
     st.image(res, width=100)
 
-    for im in res:
-        img = cv2.imread(im)
-        locating_face_landmarks(img)
+    col1, col2, col3 = st.columns(3)
 
-    predict(res)
+    for ind, im in enumerate(res):
+        img = cv2.imread(im)
+        with col1:
+            if ind == 0:
+                st.header("Extracted face ")
+            st.image(img, width=200)
+
+        with col2:
+            if ind == 0:
+                st.header("Localization")
+            locating_face_image = locating_face_landmarks(img)
+            st.image(locating_face_image, width=200)
+
+        with col3:
+            if ind == 0:
+                st.header("Prediction")
+
+            if predictions_labels[ind] == 'FAKE':
+                pred_prob = str(round((1 - probabilistic_predictions[ind][0])*100, 2))
+            else:
+                pred_prob = str(round(probabilistic_predictions[ind][0] * 100, 2))
+            text = predictions_labels[ind] + ' -->  ' + pred_prob + ' confidence'
+            tabs_font_css = """
+            <style>
+            div[class*="stTextArea"] label {
+              font-size: 26px;
+              color: red;
+            }
+            </style>
+            """
+            st.write(tabs_font_css, unsafe_allow_html=True)
+
+            st.text_area(text)
+
     shutil.rmtree(f'test_images/{option}')
 
     if option == 'upload video':
