@@ -144,7 +144,7 @@ def extract_image(directory):
 
 
 option = st.selectbox(
-    "How would you like to be contacted?",
+    "How would you like to start",
     ("Choose dataset", "person_1", "upload video"))
 source_dir = ''
 path = ''
@@ -198,7 +198,10 @@ if path != '' and source_dir != '':
     # image1 = Image.open(path + image)
     predictions_labels, probabilistic_predictions = predict(res)
 
+    st.text('Extracted face images from above video are .......')
     st.image(res, width=100)
+
+    st.text('Detecting the face localisation and predicting for deep Fake.......')
 
     col1, col2, col3 = st.columns(3)
 
@@ -217,18 +220,17 @@ if path != '' and source_dir != '':
 
         with col3:
             if ind == 0:
-                st.header("Prediction")
+                st.header("FAKE/REAL")
 
             if predictions_labels[ind] == 'FAKE':
                 pred_prob = str(round((1 - probabilistic_predictions[ind][0])*100, 2))
             else:
                 pred_prob = str(round(probabilistic_predictions[ind][0] * 100, 2))
-            text = predictions_labels[ind] + ' -->  ' + pred_prob + ' confidence'
+            text = predictions_labels[ind] + ' -->  ' + pred_prob + '% confidence'
             tabs_font_css = """
             <style>
-            div[class*="stTextArea"] label {
-              font-size: 26px;
-              color: red;
+            div[class*="stText"] label {
+              font-size: 22px
             }
             </style>
             """
